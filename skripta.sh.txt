@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Variables
+repositoryUrl="https://github.com/skadi321/FlaskApp.git"
+repositoryName="FlaskApp"
+pingIpAddress="10.0.2.2"
+
+expectedResponse='{"message":"Welcome to the Simple Python API!"}'
+
+# Clone the GitHub repository
+git clone "$repositoryUrl"
+cd "$repositoryName" || exit
+
+# Build the Docker image using the provided Dockerfile
+sudo docker build -t simple-python-api .
+
+# Run the Docker container in the background
+sudo docker run -p 5000:5000 --name simple-python-api -d simple-python-api 
+
+sleep 5
+
+# Check if the API is responding as expected
+response=$(curl -s "http://0.0.0.0:5000/api/greeting")
+
+if [ "$response" = "$expectedResponse" ]; then
+    buildMessage="Build Succeeded!"
+    # Send message to the PowerShell server using netcat
+    echo "$buildMessage" | nc "$pingIpAddress" 12345 &
+else
+    buildMessage="Build Failed."
+    echo "$buildMessage" | nc "$pingIpAddress" 12345 &
+fi
+
+logFilePath="build_log.txt"
+currentTime=$(date +"%Y-%m-%d %H:%M:%S")
+logEntry="$currentTime - Success"
+if [ ! -e "$logFilePath" ]; then
+        # Create the file if it does not exist
+        touch "$logFilePath"
+fi
+
+    # Append the current time and "Success" to the file
+echo "$logEntry" >> "$logFilePath"
+echo "File Content:"
+cat "$logFilePath"
+
+# Clean up - remove the cloned repository
+docker stop simple-python-api
+docker rm simple-python-api
+
+cd ..
+rm -rf "$repositoryName"
